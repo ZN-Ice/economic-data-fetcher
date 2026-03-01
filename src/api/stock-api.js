@@ -174,15 +174,23 @@ export class StockAPI {
 
               const nameMap = { 'SPX': '标普500', 'IXIC': '纳斯达克', 'DJI': '道琼斯' };
 
-              return new IndexData({
-                name: nameMap[symbol] || symbol,
-                code: symbol,
-                price: price,
-                change: change,
-                changePercent: changePercent,
-                volume: 0,
-                timestamp: new Date()
-              });
+              if (!isNaN(price) && !isNaN(change) && !isNaN(changePercent)) {
+                return new IndexData({
+                  name: nameMap[symbol] || symbol,
+                  code: symbol,
+                  price: price,
+                  change: change,
+                  changePercent: changePercent,
+                  volume: 0,
+                  timestamp: new Date()
+                });
+              } else {
+                log(`${symbol}数据格式错误: ${JSON.stringify(quote)}`);
+                return null;
+              }
+            } else {
+              log(`未找到${symbol}的Global Quote数据`);
+              return null;
             }
           } catch (e) {
             log(`获取${symbol}失败: ${e.message}`);

@@ -4,6 +4,7 @@
  */
 import { EconomicDataFetcher, fetchFocusStocks } from './fetcher.js';
 import { saveToJSON } from './utils.js';
+import { config } from './config.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -19,38 +20,26 @@ async function main() {
   const printOnly = args.includes('--print-only');
   const showStocks = args.includes('--stocks') || args.includes('-st');
   let outputFile = null;
-  let usApiKey = null;
-  let goldApiKey = null;
+
+  // 显示API key状态
+  if (config.usApiKey) console.log(`✅ 使用美股真实API (Alpha Vantage)`);
+  else console.log(`⚠️  美股使用模拟数据 (请在.env中配置ALPHAVANTAGE_API_KEY)`);
+
+  if (config.goldApiKey) console.log(`✅ 使用黄金真实API (Alpha Vantage)`);
+  else console.log(`⚠️  贵金属使用模拟数据 (请在.env中配置ALPHAVANTAGE_API_KEY)`);
 
   // 解析参数
-  const usKeyIndex = args.indexOf('--us-api-key');
-  if (usKeyIndex !== -1 && args[usKeyIndex + 1]) {
-    usApiKey = args[usKeyIndex + 1];
-  }
-
-  const goldKeyIndex = args.indexOf('--gold-api-key');
-  if (goldKeyIndex !== -1 && args[goldKeyIndex + 1]) {
-    goldApiKey = args[goldKeyIndex + 1];
-  }
-
   const outputIndex = args.indexOf('--output') || args.indexOf('-o');
   if (outputIndex !== -1 && args[outputIndex + 1]) {
     outputFile = args[outputIndex + 1];
   }
 
-  // 显示API key状态
-  if (usApiKey) console.log(`✅ 使用美股真实API (Alpha Vantage)`);
-  else console.log(`⚠️  美股使用模拟数据 (可使用 --us-api-key 参数)`);
-
-  if (goldApiKey) console.log(`✅ 使用黄金真实API (Alpha Vantage)`);
-  else console.log(`⚠️  贵金属使用模拟数据 (可使用 --gold-api-key 参数)`);
-
   // 创建抓取器
-  const fetcher = new EconomicDataFetcher(usApiKey, goldApiKey);
+  const fetcher = new EconomicDataFetcher(config.usApiKey, config.goldApiKey);
 
   // 显示个股详情
   if (showStocks) {
-    const stocks = await fetcher.fetchFocusStocks();
+    const stocks = await fetchFocusStocks();
     return 0;
   }
 

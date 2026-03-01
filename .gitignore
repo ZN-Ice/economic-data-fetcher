@@ -5,6 +5,11 @@ yarn-error.log
 package-lock.json
 yarn.lock
 
+# Environment Variables (敏感信息，不要提交）
+.env
+.env.local
+.env.*.local
+
 # Logs
 *.log
 logs/
@@ -23,11 +28,6 @@ Thumbs.db
 # Data files
 *.json
 !package.json
-
-# Environment
-.env
-.env.local
-.env.*.local
 
 # Build
 dist/
