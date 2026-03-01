@@ -16,8 +16,10 @@ function log(message) {
  * 经济数据抓取器类
  */
 export class EconomicDataFetcher {
-  constructor() {
+  constructor(usApiKey = null, goldApiKey = null) {
     this.reportDate = new Date();
+    this.usApiKey = usApiKey;
+    this.goldApiKey = goldApiKey;
   }
 
   /**
@@ -30,7 +32,7 @@ export class EconomicDataFetcher {
     log('正在获取股市数据...');
     const aShares = await StockAPI.getAShareIndices();
     const hkShares = await StockAPI.getHKIndices();
-    const usShares = await StockAPI.getUSIndices();
+    const usShares = await StockAPI.getUSIndices(this.usApiKey);
 
     // 加密货币数据
     log('正在获取加密货币数据...');
@@ -57,6 +59,17 @@ export class EconomicDataFetcher {
     log(`数据抓取完成 - A股:${aShares.length} 港股:${hkShares.length} 美股:${usShares.length} 加密货币:${crypto.length} 商品:${commodities.length}`);
 
     return report;
+  }
+
+  /**
+   * 获取重点个股数据
+   */
+  async fetchFocusStocks() {
+    log('正在获取重点个股数据...');
+    const stocks = await StockAPI.getFocusStocks();
+
+    log(`获取到重点个股 ${stocks.length} 条`);
+    return stocks;
   }
 
   /**
@@ -139,6 +152,24 @@ export class EconomicDataFetcher {
 
     console.log('\n' + '='.repeat(60) + '\n');
   }
+
+  /**
+   * 打印个股报告
+   */
+  printStocks(stocks) {
+    console.log('\n' + '='.repeat(60));
+    console.log(`📋 重点个股报告 - ${getTimestamp()}`);
+    console.log('='.repeat(60));
+
+    stocks.forEach(stock => {
+      console.log(`\n  ${stock.name} (${stock.code})`);
+      console.log(`  价格: ${stock.price.toFixed(2)}`);
+      console.log(`  涨跌: ${stock.change.toFixed(2)} (${stock.changePercent >= 0 ? '+' : ''}${stock.changePercent.toFixed(2)}%)`);
+      console.log(`  成交量: ${(stock.volume / 100000000).toFixed(2)}亿`);
+    });
+
+    console.log('\n' + '='.repeat(60) + '\n');
+  }
 }
 
 /**
@@ -150,3 +181,14 @@ export async function fetchAndPrint() {
   fetcher.printReport(report);
   return report;
 }
+
+/**
+ * 抓取并打印重点个股
+ */
+export async function fetchFocusStocks() {
+  const fetcher = new EconomicDataFetcher();
+  const stocks = await fetcher.fetchFocusStocks();
+  fetcher.printStocks(stocks);
+  return stocks;
+}
+
