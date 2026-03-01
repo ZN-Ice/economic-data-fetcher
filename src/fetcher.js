@@ -28,9 +28,9 @@ export class EconomicDataFetcher {
 
     // 股市数据
     log('正在获取股市数据...');
-    const aShares = StockAPI.getAShareIndices();
-    const hkShares = StockAPI.getHKIndices();
-    const usShares = StockAPI.getUSIndices();
+    const aShares = await StockAPI.getAShareIndices();
+    const hkShares = await StockAPI.getHKIndices();
+    const usShares = await StockAPI.getUSIndices();
 
     // 加密货币数据
     log('正在获取加密货币数据...');

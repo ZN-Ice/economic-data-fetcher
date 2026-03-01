@@ -16,7 +16,7 @@ async function testStockAPI() {
 
   // 测试A股指数
   console.log('\n1. 测试A股指数...');
-  const aShares = StockAPI.getAShareIndices();
+  const aShares = await StockAPI.getAShareIndices();
   console.log(`✅ 获取到 ${aShares.length} 条A股指数`);
   aShares.forEach(index => {
     console.log(`   ${index.toString()}`);
@@ -24,7 +24,7 @@ async function testStockAPI() {
 
   // 测试港股指数
   console.log('\n2. 测试港股指数...');
-  const hkShares = StockAPI.getHKIndices();
+  const hkShares = await StockAPI.getHKIndices();
   console.log(`✅ 获取到 ${hkShares.length} 条港股指数`);
   hkShares.forEach(index => {
     console.log(`   ${index.toString()}`);
@@ -32,7 +32,7 @@ async function testStockAPI() {
 
   // 测试美股指数
   console.log('\n3. 测试美股指数...');
-  const usShares = StockAPI.getUSIndices();
+  const usShares = await StockAPI.getUSIndices();
   console.log(`✅ 获取到 ${usShares.length} 条美股指数`);
   usShares.forEach(index => {
     console.log(`   ${index.toString()}`);
