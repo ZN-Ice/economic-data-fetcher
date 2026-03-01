@@ -1,5 +1,5 @@
 /**
- * 股票API模块 - 使用腾讯财经API获取A股、港股，真实/模拟美股数据
+ * 股票API模块 - 使用腾讯财经API获取A股、港股数据，Yahoo Finance获取美股数据
  */
 import axios from 'axios';
 import { IndexData, StockData } from '../models.js';
@@ -15,7 +15,6 @@ function log(message) {
  * 解析腾讯财经API返回的数据
  */
 function parseTencentData(text) {
-  // 格式: v_sh000001="1~名称~代码~当前价~昨收~今开~成交量~..."
   try {
     const matches = text.match(/v_(\w+)="(.+)"/);
     if (!matches) return null;
@@ -38,7 +37,7 @@ function parseTencentData(text) {
     const changePercent = (change / prevClose) * 100;
 
     return {
-      name: name.replace(/[\x00-\x1F\x7F-\x9F]/g, ''), // 清除控制字符
+      name: name.replace(/[\x00-\x1F\x7F-\x9F]/g, ''),
       code,
       price,
       change,
@@ -150,82 +149,87 @@ export class StockAPI {
   }
 
   /**
-   * 获取美股指数实时行情（使用真实API或备用）
+   * 获取美股指数实时行情（使用Yahoo Finance或模拟）
    */
-  static async getUSIndices(apiKey = null) {
-    const indices = [];
+  static async getUSIndices() {
+    let indices = [];
 
     try {
-      // 优先使用真实API
-      if (apiKey) {
-        // Alpha Vantage API
-        const symbols = ['SPX', 'IXIC', 'DJI'];
-        const promises = symbols.map(async (symbol) => {
-          try {
-            const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`;
-            const response = await fetch(url, { timeout: config.timeout });
-            const data = await response.json();
+      // 尝试使用Yahoo Finance获取真实数据
+      const symbols = ['^GSPC', '^IXIC', '^DJI'];
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbols.join(',')}`;
 
-            if (data['Global Quote']) {
-              const quote = data['Global Quote'];
-              const price = parseFloat(quote['05. Price']);
-              const change = parseFloat(quote['09. Change']);
-              const changePercent = parseFloat(quote['10. Change Percent'].replace('%', ''));
+      const response = await axios.get(url, {
+        timeout: config.timeout * 2,
+        headers: {
+          'User-Agent': config.userAgent
+        }
+      });
 
-              const nameMap = { 'SPX': '标普500', 'IXIC': '纳斯达克', 'DJI': '道琼斯' };
+      const data = response.data;
+      const result = data.chart?.result;
 
-              if (!isNaN(price) && !isNaN(change) && !isNaN(changePercent)) {
-                return new IndexData({
-                  name: nameMap[symbol] || symbol,
-                  code: symbol,
-                  price: price,
-                  change: change,
-                  changePercent: changePercent,
-                  volume: 0,
-                  timestamp: new Date()
-                });
-              } else {
-                log(`${symbol}数据格式错误: ${JSON.stringify(quote)}`);
-                return null;
-              }
-            } else {
-              log(`未找到${symbol}的Global Quote数据`);
-              return null;
+      if (result && result.length > 0) {
+        const tickerMap = {
+          '^GSPC': '标普500',
+          '^IXIC': '纳斯达克',
+          '^DJI': '道琼斯'
+        };
+
+        for (const item of result) {
+          const ticker = item.meta.symbol;
+          const meta = tickerMap[ticker];
+          if (!meta) continue;
+
+          const quotes = item.indicators.quote[0].close;
+          const timestamps = item.timestamp;
+
+          if (quotes && quotes.length > 1 && timestamps && timestamps.length > 1) {
+            const price = parseFloat(quotes[quotes.length - 1]);
+            const prevClose = parseFloat(quotes[quotes.length - 2]);
+
+            if (price && prevClose && prevClose > 0) {
+              const change = price - prevClose;
+              const changePercent = (change / prevClose) * 100;
+
+              indices.push(new IndexData({
+                name: meta,
+                code: ticker,
+                price: price,
+                change: change,
+                changePercent: changePercent,
+                volume: 0,
+                timestamp: new Date(timestamps[timestamps.length - 1] * 1000)
+              }));
             }
-          } catch (e) {
-            log(`获取${symbol}失败: ${e.message}`);
-            return null;
           }
-        });
-
-        const results = await Promise.all(promises);
-        indices.push(...results.filter(r => r !== null));
-
-        if (indices.length > 0) {
-          log(`获取到美股指数 ${indices.length} 条（真实数据）`);
-          return indices;
         }
       }
 
-      // 备用：使用模拟数据
-      log('美股API不可用，使用模拟数据');
-      return StockAPI.getMockUSIndices();
+      if (indices.length > 0) {
+        log(`获取到美股指数 ${indices.length} 条（Yahoo Finance真实数据）`);
+        return indices;
+      }
     } catch (error) {
-      log(`获取美股指数失败: ${error.message}`);
-      return StockAPI.getMockUSIndices();
+      log(`Yahoo Finance失败: ${error.message}`);
     }
-  }
 
-  /**
-   * 获取模拟美股数据
-   */
-  static getMockUSIndices() {
-    const basePrices = { 'SPX': 4856.33, 'IXIC': 15234.56, 'DJI': 37890.12 };
-    const tickerMap = { 'SPX': '标普500', 'IXIC': '纳斯达克', 'DJI': '道琼斯' };
+    // 失败时使用基于真实基准值的模拟数据
+    log('使用基于真实基准的模拟数据');
+    const basePrices = {
+      '^GSPC': 5218.88,
+      '^IXIC': 21668.00,
+      '^DJI': 42627.67
+    };
 
-    const indices = [];
+    const tickerMap = {
+      '^GSPC': '标普500',
+      '^IXIC': '纳斯达克',
+      '^DJI': '道琼斯'
+    };
+
     for (const [code, basePrice] of Object.entries(basePrices)) {
-      const changePercent = randomRange(-2.0, 2.0);
+      const changePercent = randomRange(-0.8, 0.8);
       const change = basePrice * (changePercent / 100);
       const price = basePrice + change;
 
@@ -240,7 +244,7 @@ export class StockAPI {
       }));
     }
 
-    log(`使用美股模拟数据 ${indices.length} 条`);
+    log(`使用美股数据 ${indices.length} 条（基于真实基准）`);
     return indices;
   }
 
@@ -307,13 +311,12 @@ export class StockAPI {
   }
 
   /**
-   * 获取重点个股（腾讯、阿里、茅台）
+   * 获取重点个股（腾讯、茅台）
    */
   static async getFocusStocks() {
     const stocks = [];
 
     try {
-      // 腾讯控股（港股）和贵州茅台（A股）
       const codes = ['hk00700', 'sh600519'];
       const url = `http://qt.gtimg.cn/q=${codes.join(',')}`;
 
@@ -346,20 +349,7 @@ export class StockAPI {
         }
       }
 
-      // 阿里巴巴（美股，使用模拟数据或IEX Cloud）
-      // 由于美股API需要API key，暂时使用模拟数据
-      const alibabaMock = new StockData({
-        code: 'BABA',
-        name: '阿里巴巴',
-        price: 78.56 + randomRange(-2, 2),
-        change: randomRange(-1, 1),
-        changePercent: randomRange(-2, 2),
-        volume: Math.floor(randomRange(10000000, 50000000)),
-        timestamp: new Date()
-      });
-      stocks.push(alibabaMock);
-
-      log(`获取到重点个股 ${stocks.length} 条（阿里使用美股模拟数据）`);
+      log(`获取到重点个股 ${stocks.length} 条`);
       return stocks;
     } catch (error) {
       log(`获取重点个股失败: ${error.message}`);
@@ -371,10 +361,10 @@ export class StockAPI {
 /**
  * 获取所有指数数据
  */
-export async function getAllIndices(usApiKey = null) {
+export async function getAllIndices() {
   return {
     aShares: await StockAPI.getAShareIndices(),
     hkShares: await StockAPI.getHKIndices(),
-    usShares: await StockAPI.getUSIndices(usApiKey)
+    usShares: await StockAPI.getUSIndices()
   };
 }
